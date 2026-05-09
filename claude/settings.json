@@ -1,0 +1,23 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash:yarn lint:*/~/src/*",
+      "Bash:yarn test:*/~/src/*"
+    ],
+    "additionalDirectories": [
+      "~/src"
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "padding": 2
+  },
+  "alwaysThinkingEnabled": true,
+  "autoCompactEnabled": false,
+  "agentPushNotifEnabled": true
+}
