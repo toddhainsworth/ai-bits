@@ -63,10 +63,10 @@ main() {
   symlink "$REPO_DIR/claude/statusline.sh" "$CLAUDE_DIR/statusline.sh"
 
   echo
-  echo "Done. Restart Claude Code to pick up the new settings."
+  echo "Done. Restart your agent to pick up the new settings."
   echo
-  echo "Third-party skills (mattpocock, vercel-labs) must be installed manually:"
-  echo "  claude skills install mattpocock/skills"
+  echo "Third-party skills are not tracked here. Reinstall them with:"
+  echo "  npx skills add <owner/repo>"
 }
 
 main "$@"

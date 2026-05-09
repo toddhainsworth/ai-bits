@@ -1,6 +1,6 @@
 # ai-bits
 
-Personal AI configuration and tooling — Claude Code settings, custom skills, and anything else that makes a new machine feel like home.
+Personal AI configuration and tooling — agent settings, custom skills, and anything else that makes a new machine feel like home.
 
 ## Setup
 
@@ -12,14 +12,14 @@ cd ~/src/ai-bits
 ./install.sh
 ```
 
-The install script creates symlinks from `~/.claude/` into this repo. Existing files are backed up automatically. After it runs, restart Claude Code.
+The install script creates symlinks from `~/.claude/` into this repo. Existing files are backed up automatically. After it runs, restart your agent.
 
 ### Third-party skills
 
-Skills from external registries (e.g. Matt Pocock's skill pack) are managed by Claude Code's own skill manager and are not tracked here. Reinstall them with:
+Third-party skills are installed via [`npx skills`](https://github.com/vercel-labs/skills) and are not tracked here. Reinstall them with:
 
 ```bash
-claude skills install mattpocock/skills
+npx skills add <owner/repo>
 ```
 
 Refer to the [Skills](#skills) section below for the current list.
@@ -47,10 +47,10 @@ None yet.
 ## Decision log
 
 **Why symlinks instead of copying files?**
-Edits in the repo immediately take effect in Claude Code without a sync step. On a new machine the install script recreates the links.
+Edits in the repo immediately take effect without a sync step. On a new machine the install script recreates the links.
 
 **Why `claude/` subfolder instead of flat root?**
 Scoped for future tools — `cursor/`, `copilot/`, etc. can live alongside it without polluting the root.
 
 **Why not track third-party skills?**
-Claude Code's skill manager handles installs and updates via a lock file (`~/.agents/.skill-lock.json`). Vendoring the skill files would create a maintenance burden with no upside — the registry is the source of truth.
+`npx skills` handles installs from git repositories. Vendoring the skill files would create a maintenance burden with no upside — the source repo is the source of truth.
