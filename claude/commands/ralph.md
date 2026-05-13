@@ -44,25 +44,16 @@ If `mode = prd`:
 gh issue view <PRD_NUMBER> --json number,title,body
 ```
 
-2. Find child issues:
+2. Find child issues by scanning all issues for a `## Parent` section referencing the PRD:
 
 ```bash
-gh api graphql -f query='
-query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    issue(number: $number) {
-      trackedIssues(first: 100) {
-        nodes { number title state body }
-      }
-    }
-  }
-}' \
--f owner="$(gh repo view --json owner --jq -r '.owner.login')" \
--f repo="$(gh repo view --json name --jq -r '.name')" \
--F number=<PRD_NUMBER>
+gh issue list --state all --label ready-for-agent \
+  --limit 200 \
+  --json number,title,body,state \
+  --jq '[.[] | select(.body | test("(?i)##\\s*Parent\\s+#<PRD_NUMBER>"))] | sort_by(.number)'
 ```
 
-Set `max_issues` to the number of child issues returned. Sort them by number ascending — that is the work queue.
+Set `max_issues` to the number of child issues returned. The work queue is the child issues with `state: OPEN`, sorted by number ascending. Already-closed children (from a prior partial run) are skipped automatically in the loop.
 
 3. Determine the default branch and create the shared feature branch from it:
 
@@ -133,7 +124,7 @@ SLUG=$(echo "<TITLE>" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed
 git checkout -b "feature/<NUMBER>_${SLUG}"
 ```
 
-In **PRD mode** you are already on the shared branch — skip this step.
+In PRD mode the orchestrator already created the shared feature branch during setup — skip this step.
 
 ---
 
@@ -314,7 +305,7 @@ Closes #NUMBER
 
 ---
 
-### Step 7 — Open PR and close issue (standard mode)
+### Step 7 — Open PR (standard mode)
 
 ```bash
 git push -u origin "$(git branch --show-current)"
@@ -323,11 +314,7 @@ gh pr create \
   --body "Closes #<NUMBER>"
 ```
 
-Close the issue:
-
-```bash
-gh issue close <NUMBER> --comment "Implemented in $(git rev-parse --short HEAD). PR: <PR_URL>"
-```
+The `Closes #<NUMBER>` trailer will close the issue automatically when the PR is merged — do not close it manually.
 
 Return to the default branch for the next iteration:
 
@@ -339,9 +326,9 @@ Increment `closed`. If `closed` equals `max_issues`, proceed to **On completion*
 
 ---
 
-### Step 7 (PRD mode) — Commit slice and close child issue
+### Step 7 (PRD mode) — Close slice and advance
 
-After committing (Step 6), close the child issue:
+Close the child issue immediately so it is excluded from subsequent loop iterations:
 
 ```bash
 gh issue close <NUMBER> --comment "Implemented in $(git rev-parse --short HEAD)."
@@ -366,6 +353,10 @@ Implements all vertical slices for #PRD_NUMBER.
 
 - #CHILD_1: CHILD_1_TITLE
 - #CHILD_2: CHILD_2_TITLE
+...
+
+Closes #CHILD_1
+Closes #CHILD_2
 ...
 EOF
 )"
