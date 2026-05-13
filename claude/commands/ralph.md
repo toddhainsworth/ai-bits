@@ -58,7 +58,7 @@ Set `max_issues` to the number of child issues returned. The work queue is the c
 3. Determine the default branch and create the shared feature branch from it:
 
 ```bash
-DEFAULT=$(gh repo view --json defaultBranchRef --jq -r '.defaultBranchRef.name')
+DEFAULT=$(gh repo view --json defaultBranchRef | jq -r '.defaultBranchRef.name')
 git checkout "$DEFAULT" && git pull
 ```
 
@@ -122,7 +122,7 @@ If all criteria pass: record a brief summary of your reading — the acceptance 
 ### Step 3 — Create a feature branch (standard mode only)
 
 ```bash
-DEFAULT=$(gh repo view --json defaultBranchRef --jq -r '.defaultBranchRef.name')
+DEFAULT=$(gh repo view --json defaultBranchRef | jq -r '.defaultBranchRef.name')
 git checkout "$DEFAULT" && git pull
 ```
 
