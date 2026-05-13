@@ -76,6 +76,9 @@ main() {
   # Global commands
   symlink_dir "$REPO_DIR/claude/commands" "$CLAUDE_DIR/commands"
 
+  # Custom skills
+  symlink_dir "$REPO_DIR/claude/skills" "$CLAUDE_DIR/skills"
+
   echo
   echo "Done. Restart your agent to pick up the new settings."
   echo

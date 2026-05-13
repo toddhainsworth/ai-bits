@@ -36,6 +36,7 @@ Refer to the [Skills](#skills) section below for the current list.
 | `settings.json` | `~/.claude/settings.json` | Claude Code settings — permissions, env vars, status line config, experimental features. |
 | `statusline.sh` | `~/.claude/statusline.sh` | Custom status line script. Shows model, plan usage with time-to-reset, context window %, and git branch with a clickable repo link. |
 | `commands/` | `~/.claude/commands/` | Custom slash commands available in every Claude Code session. |
+| `skills/` | `~/.claude/skills/` | Custom skills written for personal use. |
 
 ### Commands
 
@@ -44,12 +45,6 @@ Custom slash commands. Each command is a markdown file in `claude/commands/` and
 | Command | Description |
 |---|---|
 | `/ralph` | Autonomous GitHub issue loop — selects, implements, reviews, and closes `ready-for-agent` issues via orchestrated sub-agents. Supports `[N]` to cap the number of issues or `prd <issue>` to process all child issues of a PRD on a shared branch. |
-
-### `skills/`
-
-Custom skills written for personal use. Each skill lives in its own subdirectory following the standard `SKILL.md` structure.
-
-None yet.
 
 ---
 
