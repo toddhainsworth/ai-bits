@@ -60,8 +60,12 @@ Set `max_issues` to the number of child issues returned. The work queue is the c
 ```bash
 DEFAULT=$(gh repo view --json defaultBranchRef --jq -r '.defaultBranchRef.name')
 git checkout "$DEFAULT" && git pull
-SLUG=$(echo "<PRD_TITLE>" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-git checkout -b "feature/<PRD_NUMBER>_${SLUG}"
+```
+
+Derive a short, lowercase, hyphen-separated slug from the PRD title — capture the subject in 3–5 words, drop type prefixes (feat, fix, chore, etc.), drop articles and filler. Use that as `<SLUG>`.
+
+```bash
+git checkout -b "feature/<PRD_NUMBER>_<SLUG>"
 ```
 
 ---
@@ -120,8 +124,12 @@ If all criteria pass: record a brief summary of your reading — the acceptance 
 ```bash
 DEFAULT=$(gh repo view --json defaultBranchRef --jq -r '.defaultBranchRef.name')
 git checkout "$DEFAULT" && git pull
-SLUG=$(echo "<TITLE>" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-git checkout -b "feature/<NUMBER>_${SLUG}"
+```
+
+Derive a short, lowercase, hyphen-separated slug from the issue title — capture the subject in 3–5 words, drop type prefixes (feat, fix, chore, etc.), drop articles and filler. Use that as `<SLUG>`.
+
+```bash
+git checkout -b "feature/<NUMBER>_<SLUG>"
 ```
 
 In PRD mode the orchestrator already created the shared feature branch during setup — skip this step.
@@ -129,6 +137,12 @@ In PRD mode the orchestrator already created the shared feature branch during se
 ---
 
 ### Step 4 — Spawn the implementation agent
+
+Record the current HEAD so the review agent can diff only this slice's changes:
+
+```bash
+SLICE_BASE=$(git rev-parse HEAD)
+```
 
 Fetch the full issue: `gh issue view <NUMBER>`
 
@@ -180,10 +194,10 @@ Record in `retrospective`. Then stop the loop.
 
 ### Step 5 — Spawn the review agent
 
-Get the full diff:
+Get the diff for this slice only:
 
 ```bash
-git diff HEAD
+git diff $SLICE_BASE
 ```
 
 Extract the acceptance criteria from the issue body.
@@ -208,6 +222,7 @@ GIT_DIFF
 3. No unnecessary comments — only where the WHY is non-obvious.
 4. Code is self-documenting (well-named identifiers, no redundant comments).
 5. No regressions visible in the diff.
+6. Documentation health — if the changes affect behaviour, configuration, interfaces, or concepts referenced in CONTEXT.md, README, or inline docs, flag whether those docs need updating. Label doc-only gaps as (low-priority) if functionality is otherwise correct.
 
 Note any issues that are minor / low-priority but not blockers — label them clearly as (low-priority).
 
