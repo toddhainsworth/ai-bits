@@ -37,6 +37,17 @@ symlink() {
   info "linked $dst -> $src"
 }
 
+symlink_dir() {
+  local src="$1"
+  local dst="$2"
+
+  mkdir -p "$dst"
+  for file in "$src"/*; do
+    [ -e "$file" ] || continue
+    symlink "$file" "$dst/$(basename "$file")"
+  done
+}
+
 check_deps() {
   local missing=()
   for cmd in jq curl git; do
@@ -61,6 +72,9 @@ main() {
   symlink "$REPO_DIR/claude/CLAUDE.md"     "$CLAUDE_DIR/CLAUDE.md"
   symlink "$REPO_DIR/claude/settings.json" "$CLAUDE_DIR/settings.json"
   symlink "$REPO_DIR/claude/statusline.sh" "$CLAUDE_DIR/statusline.sh"
+
+  # Global commands
+  symlink_dir "$REPO_DIR/claude/commands" "$CLAUDE_DIR/commands"
 
   echo
   echo "Done. Restart your agent to pick up the new settings."
