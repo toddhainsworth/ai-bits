@@ -34,6 +34,18 @@ cat CLAUDE.md 2>/dev/null || cat ~/.claude/CLAUDE.md
 
 Store this as `PROJECT_CONVENTIONS`. Inject it into every sub-agent prompt.
 
+### Cache default branch
+
+Look up the default branch once for the whole session — Step 3 and Step 7 reuse it:
+
+```bash
+DEFAULT=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name')
+```
+
+### Identify verification commands
+
+Inspect `PROJECT_CONVENTIONS` for test, lint, and format commands. Record them as `VERIFY_COMMANDS` (e.g. `yarn test`, `yarn lint --fix`). If none are documented, set `VERIFY_COMMANDS` to empty — Step 5.5 becomes a no-op.
+
 ### PRD mode: discover child issues and create shared branch
 
 If `mode = prd`:
@@ -55,10 +67,9 @@ gh issue list --state all --label ready-for-agent \
 
 Set `max_issues` to the number of child issues returned. The work queue is the child issues with `state: OPEN`, sorted by number ascending. Already-closed children (from a prior partial run) are skipped automatically in the loop.
 
-3. Determine the default branch and create the shared feature branch from it:
+3. Create the shared feature branch from the cached `$DEFAULT`:
 
 ```bash
-DEFAULT=$(gh repo view --json defaultBranchRef | jq -r '.defaultBranchRef.name')
 git checkout "$DEFAULT" && git pull
 ```
 
@@ -78,23 +89,22 @@ Repeat until `closed` reaches `max_issues` (if set) or no eligible issue is foun
 
 ### Step 1 — Find the next eligible issue
 
-**Standard mode:** query open `ready-for-agent` issues:
+**Standard mode:** query open `ready-for-agent` issues once per loop iteration. Keep the full JSON — Steps 2 and 4 reuse the `body` field instead of re-fetching it.
 
 ```bash
 gh issue list --state open --label ready-for-agent \
   --json number,title,body \
-  --jq '[.[] | {number, title, body}] | sort_by(.number)'
+  --jq 'sort_by(.number)'
 ```
 
-**PRD mode:** use the pre-discovered child issue queue in ascending number order, skipping any already `CLOSED`.
+**PRD mode:** use the pre-discovered child issue queue in ascending number order, skipping any already `CLOSED`. The body for each child was captured during setup — reuse it.
 
-For each candidate, parse its `## Blocked by` section. For each `#X` listed:
+Parse `## Blocked by` from each candidate's body to collect referenced issue numbers. Resolve blocker states efficiently:
 
-```bash
-gh issue view X --json state --jq '.state'
-```
+1. Any blocker whose number appears in the candidates list above is by definition still `OPEN` — the candidate is blocked, skip without a network call.
+2. For remaining unknown blockers, fire all `gh issue view <N> --json state` calls in parallel (single tool-call batch), then read results together.
 
-An issue is eligible when all blockers are `CLOSED`, or no `## Blocked by` section exists.
+An issue is eligible when all of its blockers resolve to `CLOSED`, or it has no `## Blocked by` section.
 
 If no eligible issue is found: proceed to the **On completion** section.
 
@@ -102,7 +112,7 @@ If no eligible issue is found: proceed to the **On completion** section.
 
 ### Step 2 — Pre-screen the issue
 
-Fetch the full issue body and evaluate it against all four criteria:
+Use the body already captured in Step 1 (do not re-fetch). Evaluate it against all four criteria:
 
 1. **Acceptance criteria present** — a verifiable definition of done exists (not just a description of the problem).
 2. **Scope is bounded** — implementation requires no decisions outside the codebase (no "discuss with team", "figure out the right approach").
@@ -115,14 +125,13 @@ If any criterion fails: post a comment naming the specific gap, record the skip 
 gh issue comment <NUMBER> --body "Ralph skipped #<NUMBER>: <specific criterion that failed>"
 ```
 
-If all criteria pass: record a brief summary of your reading — the acceptance criteria in your own words, the apparent scope boundary, any non-obvious constraints you noticed. This becomes `PRESCREEEN_ANALYSIS` and is passed to the implementation agent.
+If all criteria pass: record a brief summary of your reading — the acceptance criteria in your own words, the apparent scope boundary, any non-obvious constraints you noticed. This becomes `PRESCREEN_ANALYSIS` and is passed to the implementation agent.
 
 ---
 
 ### Step 3 — Create a feature branch (standard mode only)
 
 ```bash
-DEFAULT=$(gh repo view --json defaultBranchRef | jq -r '.defaultBranchRef.name')
 git checkout "$DEFAULT" && git pull
 ```
 
@@ -144,9 +153,7 @@ Record the current HEAD so the review agent can diff only this slice's changes:
 SLICE_BASE=$(git rev-parse HEAD)
 ```
 
-Fetch the full issue: `gh issue view <NUMBER>`
-
-Spawn an Agent with this prompt (fill all placeholders before spawning):
+Use the issue body already captured in Step 1 as `FULL_ISSUE_BODY`. Spawn an Agent with this prompt (fill all placeholders before spawning):
 
 ```
 You are implementing GitHub issue #NUMBER: "TITLE".
@@ -165,9 +172,15 @@ PROJECT_CONVENTIONS
 
 ## Steps
 
-1. Implement the issue following the project conventions above.
-2. Run any test, lint, and format commands described in the project conventions.
-3. All checks must pass before responding.
+Use a TDD red-green-refactor loop to implement this issue. The acceptance criteria in the orchestrator analysis are your test plan — no interactive planning phase is needed.
+
+1. **Ground yourself in the domain** — read `CONTEXT.md` and any ADRs in `docs/adr/` that touch the area you are changing. Use the project's domain vocabulary in all test names and interface identifiers. Respect any architectural decisions already recorded.
+2. **Plan** — derive the behaviors to test from the acceptance criteria. List them before writing any code. Design interfaces for testability: accept dependencies rather than creating them, return results rather than producing side effects, keep the public surface small (deep modules).
+3. **Tracer bullet** — write one test for the first behavior (RED), then the minimal code to pass it (GREEN).
+4. **Incremental loop** — repeat RED→GREEN for each remaining behavior, one at a time. Only write enough code to pass the current test.
+5. **Refactor** — once all tests are GREEN, clean up duplication and improve structure. Run tests after each change. Never refactor while RED.
+6. Run any lint and format commands described in the project conventions.
+7. All checks must pass before responding.
 
 Do NOT commit. Do NOT close the issue. Do NOT create branches.
 
@@ -175,12 +188,13 @@ Do NOT commit. Do NOT close the issue. Do NOT create branches.
 
 If complete:
 DONE
-Files: <space-separated relative paths of every file you created or modified>
 
 If you need human direction and cannot proceed:
 BLOCKED
 Reason: <one concise sentence>
 ```
+
+The orchestrator derives the file list from `git diff --name-only $SLICE_BASE` plus `git ls-files --others --exclude-standard` — do not list files in the response.
 
 **If the agent returns `BLOCKED`:**
 
@@ -194,10 +208,10 @@ Record in `retrospective`. Then stop the loop.
 
 ### Step 5 — Spawn the review agent
 
-Get the diff for this slice only:
+Get the diff for this slice only, with extra surrounding context so the reviewer can see callers and adjacent code:
 
 ```bash
-git diff $SLICE_BASE
+git diff -U20 $SLICE_BASE
 ```
 
 Extract the acceptance criteria from the issue body.
@@ -211,6 +225,10 @@ Review the following changes for GitHub issue #NUMBER: "TITLE".
 
 ACCEPTANCE_CRITERIA
 
+## Project conventions
+
+PROJECT_CONVENTIONS
+
 ## Diff
 
 GIT_DIFF
@@ -218,11 +236,14 @@ GIT_DIFF
 ## What to check
 
 1. Every acceptance criterion is addressed.
-2. No deeply nested code or large functions.
-3. No unnecessary comments — only where the WHY is non-obvious.
-4. Code is self-documenting (well-named identifiers, no redundant comments).
-5. No regressions visible in the diff.
-6. Documentation health — if the changes affect behaviour, configuration, interfaces, or concepts referenced in CONTEXT.md, README, or inline docs, flag whether those docs need updating. Label doc-only gaps as (low-priority) if functionality is otherwise correct.
+2. The project conventions above are honoured (commit style aside — the orchestrator handles that). In particular, flag any "sins" the conventions call out (e.g. `any` in TS, deep nesting, oversized functions, redundant comments).
+3. No deeply nested code or large functions.
+4. No unnecessary comments — only where the WHY is non-obvious.
+5. Code is self-documenting (well-named identifiers, no redundant comments).
+6. No regressions visible in the diff.
+7. Documentation health — if the changes affect behaviour, configuration, interfaces, or concepts referenced in CONTEXT.md, README, or inline docs, flag whether those docs need updating. Label doc-only gaps as (low-priority) if functionality is otherwise correct.
+
+You may read source files in the repo for context beyond the diff hunks.
 
 Note any issues that are minor / low-priority but not blockers — label them clearly as (low-priority).
 
@@ -237,7 +258,7 @@ ISSUES
 - <issue 2>
 ```
 
-If `APPROVED`: proceed to Step 6.
+If `APPROVED`: proceed to Step 5.5.
 
 If `ISSUES`: proceed to Step 5a. Record any `(low-priority)` observations in `retrospective`.
 
@@ -260,9 +281,11 @@ Otherwise, spawn an Agent with this prompt:
 ```
 Fix the following review issues for GitHub issue #NUMBER: "TITLE".
 
-## Files to look at
+## Files changed in this slice
 
-FILES_FROM_IMPLEMENTATION_AGENT
+CHANGED_FILES
+
+(Derived from `git diff --name-only $SLICE_BASE` plus untracked files. These are the files in scope for fixes.)
 
 ## Issues to fix
 
@@ -302,12 +325,26 @@ After `DONE`: return to Step 5 to re-run the review agent.
 
 ---
 
+### Step 5.5 — Verify checks
+
+The implementation and fix agents both claim to have run tests, lint, and format. Don't take their word for it — re-run every command in `VERIFY_COMMANDS` from the orchestrator. This catches a hallucinated "all green" before it lands on a branch.
+
+If `VERIFY_COMMANDS` is empty, skip this step.
+
+If every command exits 0: proceed to Step 6.
+
+If any command fails: capture stdout+stderr of the failing command(s) as `VERIFY_FAILURES` and re-enter Step 5a with these failures injected as `REVIEW_ISSUES` (increments `fix_attempts`). The fix-attempt cap from Step 5a applies — three verify-driven failures on the same issue abandons the branch.
+
+---
+
 ### Step 6 — Commit
 
-Stage only the files listed by the implementation (or fix) agent:
+Derive the file list from git itself — don't trust agent self-reports:
 
 ```bash
-git add <file1> <file2> ...
+CHANGED=$(git diff --name-only "$SLICE_BASE")
+UNTRACKED=$(git ls-files --others --exclude-standard)
+git add -- $CHANGED $UNTRACKED
 ```
 
 Commit following the project's commit convention from `PROJECT_CONVENTIONS`. If no convention is documented, use:
@@ -317,6 +354,14 @@ feat: TITLE
 
 Closes #NUMBER
 ```
+
+After committing, assert the working tree is clean:
+
+```bash
+git status --porcelain
+```
+
+If the output is non-empty, the agent touched files that weren't picked up by the stage. Surface the leftover paths to the user, record in `retrospective`, and stop the loop — do not proceed to push or PR.
 
 ---
 
