@@ -1,69 +1,97 @@
 # Ralph
 
-Ralph is an autonomous GitHub issue loop. It selects `ready-for-agent` issues, implements them via sub-agents, reviews the output, and closes the loop — all without human intervention until something warrants it.
+Ralph is an autonomous, PRD-driven implementation loop. Given the issue number of a PRD that has been broken into `ready-for-agent` sub-tasks, Ralph picks each eligible sub-task in turn, implements it with TDD, reviews the result against the project's conventions, and closes the issue — all without human intervention until something warrants it.
 
 ```
-/ralph          # process all ready-for-agent issues
-/ralph 3        # cap at 3 issues
-/ralph prd 42   # process all child issues of PRD #42 on a shared branch
+/ralph <PRD-issue-number>
 ```
+
+Ralph operates only in PRD mode. There is no standard / per-issue mode. To prepare a PRD for Ralph, draft it with `/to-prd` and break it into sub-tasks with `/to-issues` (each sub-task needs `## Parent #<PRD>` in its body and the `ready-for-agent` label).
+
+---
+
+## Layout
+
+```
+claude/commands/
+  ralph.md                  # /ralph entry point — orchestrator instructions
+  ralph/
+    implementer.md          # prompt template for Implementer sub-agents
+    reviewer.md             # prompt template for slice-level Reviewer
+    prd-reviewer.md         # prompt template for the cumulative PRD Reviewer
+```
+
+After install (typically a symlink or copy of `claude/commands/` into `~/.claude/commands/`), Ralph reads its prompt templates from `~/.claude/commands/ralph/`.
+
+Placeholder substitution in Ralph happens at one place only — the prompt templates use `{{X}}` markers (e.g. `{{NUMBER}}`), and the Orchestrator does plain string replacement before spawning each sub-agent. Anywhere else you see `<X>` notation (in this README or in `ralph.md`'s bash snippets) it's just prose convention — "the actual value goes here" — not a formal substitution.
 
 ---
 
 ## Dependencies
 
-Ralph is designed to be used alongside [Matt Pocock's agent skills](https://github.com/mattpocock/skills/). Those skills provide the sub-agent capabilities (issue tracking, triage, domain context) that Ralph's orchestration layer coordinates. Run `/setup-matt-pocock-skills` in the target project before using Ralph there.
+Ralph is designed alongside [Matt Pocock's agent skills](https://github.com/mattpocock/skills/) — particularly `/to-prd`, `/to-issues`, and `/triage`, which produce the PRD and sub-task structure Ralph consumes. Run `/setup-matt-pocock-skills` in the target project before using Ralph there.
 
-The implementation agent follows the `/tdd` skill's red-green-refactor loop inline — the full workflow is embedded in the agent prompt, with the acceptance criteria standing in for the interactive planning phase that `/tdd` would normally run with a human.
-
----
-
-## Design philosophy
-
-Ralph is not just an implementation loop — it is a quality loop. Every session is an opportunity to improve both the code and the process that produced it. The two mechanisms that enforce this are the **review phase** and the **retrospective**.
+The Implementer agent inlines the same red-green-refactor loop as the `/tdd` skill; the acceptance criteria from the issue stand in for the interactive planning phase that `/tdd` would normally run with a human.
 
 ---
 
-## Review phase
+## The per-slice pipeline
 
-After implementation, Ralph spawns a dedicated review agent before touching git. This is not optional and cannot be bypassed.
+For each eligible sub-task, the Orchestrator runs:
 
-### What the review agent checks
+1. **Find next eligible sub-task.** Scan all `ready-for-agent` issues (open + closed) whose body references `## Parent #<PRD>` — closed children from a prior partial run are captured so they can be skipped explicitly. A candidate is eligible when its state is `OPEN` and every `## Blocked by` reference resolves to `CLOSED`.
+2. **Pre-screen.** Hybrid check: four structural criteria (acceptance present, scope bounded, blockers explicit, no ambiguous ownership) plus a domain ambiguity check. Failure → comment on the issue, append to `skipped`, move on.
+3. **Capture `SLICE_BASE`.** The diff anchor for this slice. Every downstream gate uses `git diff $SLICE_BASE` to see only this slice's changes.
+4. **Spawn Implementer.** TDD red-green-refactor, grounded in `CONTEXT.md` and `docs/adr/`. The Implementer does not commit, close, or branch.
+5. **Verify gate.** Orchestrator independently re-runs the project's test/lint/format commands. Catches hallucinated "all green."
+6. **Cursory fitness review.** Orchestrator reads the slice diff and asks one question: *does this address what the issue asked for?* Direction check, not detail check.
+7. **Spawn Reviewer.** Two-pillar review (requirements coverage + codebase/tooling best-practice) with priority-tiered findings.
+8. **Commit + close.** Orchestrator commits with `<type>: <subject>` + `Closes #N` trailer, then runs `gh issue close <N>`.
 
-1. **Acceptance criteria coverage** — every criterion in the issue is addressed, not just the happy path.
-2. **Project conventions** — the project's `CLAUDE.md` is injected into the review prompt; any "sins" it calls out (e.g. `any` in TS, deep nesting, oversized functions, redundant comments) are flagged.
-3. **Code quality** — no deeply nested code, no large functions, no unnecessary comments.
-4. **Documentation health** — if behaviour, configuration, or interfaces changed, does the relevant doc (README, CONTEXT.md, inline docs) reflect it? Doc-only gaps are flagged as `(low-priority)` if functionality is otherwise correct.
-5. **Regressions** — anything in the diff that breaks existing contracts.
-
-### Iterative fix loop
-
-If the review returns `ISSUES`, Ralph spawns a fix agent and re-runs the review. This repeats up to **two fix attempts**. If the issue still isn't resolved after two attempts, Ralph posts a comment on the GitHub issue, records the outcome in the retrospective, and moves on rather than committing broken work.
-
-Low-priority findings that don't block the commit are noted but not acted on immediately — they accumulate in the retrospective for systemic review.
-
-### Verification gate
-
-Even after the review approves, Ralph re-runs the project's test, lint, and format commands from the orchestrator before committing. The implementation and fix agents claim they ran these — Ralph verifies, since a hallucinated "all green" would otherwise land on the branch. A failure here re-enters the fix loop and shares the same two-attempt cap.
-
-After commit, Ralph asserts `git status --porcelain` is clean. If the agent touched files that weren't picked up by the stage, the loop stops rather than silently shipping a partial commit.
+After every sub-task closes, the Orchestrator spawns a **PRD-Reviewer** to validate the *cumulative* diff against the PRD body. Gaps are auto-fixed by a fresh Implementer (capped attempts).
 
 ---
 
-## Retrospective
+## Gate caps
 
-At the end of every session, Ralph synthesises everything it observed into a structured report. This is the mechanism that closes the feedback loop on the loop itself.
+Each gate that can re-engage the Implementer has its own 2-attempt cap:
 
-### What gets recorded
+- **Verify gate** — up to 2 fix attempts on test/lint/format failures.
+- **Cursory fitness** — up to 2 attempts to redirect the Implementer to the right scope.
+- **Reviewer findings** — up to 2 attempts to address Critical and High findings.
 
-Throughout the session, Ralph accumulates observations whenever something is notable:
+Cap-exceed in any gate **stops the loop**. The loop also stops if any sub-agent returns `BLOCKED`.
 
-- An issue was skipped at pre-screening (and why)
-- A fix agent was blocked and couldn't proceed
-- A low-priority review finding was deferred
-- An agent behaved unexpectedly or took more iterations than expected
+**Why stop on a single failed slice?** Ralph operates on a dependency graph of sub-tasks. If a foundational slice (one that other slices depend on) is abandoned, the downstream slices end up building on missing ground — even though they may individually still pass their own gates, the resulting branch is incoherent. Stopping cleanly preserves the partial work and lets you fix the foundation manually before re-invoking. When you re-invoke `/ralph <PRD#>`, Setup detects the existing branch and resumes from where the previous run left off (closed children are skipped automatically; in-flight changes from the stopped slice have already been reset).
 
-### Report structure
+### Re-engagement strategy
+
+On the first re-engagement of a slice, the Orchestrator uses `SendMessage` to the existing Implementer agent (preserves context). On the second, it spawns a fresh Implementer via `Agent` (clean context to break out of any accumulated confusion).
+
+---
+
+## Priority tiers
+
+Both Reviewers grade findings on four tiers:
+
+| Tier | Behaviour |
+|------|-----------|
+| **Critical** | Acceptance criterion missing, project "sin" introduced, regression visible. Blocks commit. |
+| **High** | Should be fixed before this slice lands. Blocks commit. |
+| **Medium** | Significant but not blocking. Surfaced at end-of-session as an offer to create a follow-up issue. |
+| **Low** | Style / nit. Fed into retrospective as pattern signal only. |
+
+Medium findings produce an interactive `AskUserQuestion` multi-select prompt when the loop finishes, so the user can pick which to turn into new GitHub issues (each parented to the original PRD).
+
+### A note on "sins"
+
+When the project's CLAUDE.md lists hard rules (e.g. "never use `any` in TypeScript"), the slice Reviewer treats every occurrence as Critical. If a slice has a legitimate need to violate one of those rules (e.g. a third-party type gap that genuinely requires `any`), the Reviewer will still flag it — surfaced as Critical so the orchestrator stops and surfaces it to you. There is no silent-approve escape hatch by design; the trade-off is that you get a clean signal, but a slice that "needs" a sin will require manual unstuck.
+
+---
+
+## End of session
+
+The Orchestrator prints a retrospective:
 
 ```
 ## Ralph session complete
@@ -71,38 +99,35 @@ Throughout the session, Ralph accumulates observations whenever something is not
 ### Closed
 - #N: Title
 
-### Skipped
+### Skipped at pre-screen          (omitted if empty)
+- #N: Title — <criterion that failed>
+
+### Blocked or abandoned           (omitted if empty)
 - #N: Title — <reason>
 
-### Observations
+### PRD validation
+APPROVED   (or)   ISSUES — N findings, see medium offers below   (or)   SKIPPED — loop stopped early
 
-**Ralph loop improvements**
-Problems with the loop itself — pre-screening criteria, agent prompts, response formats, edge cases in the workflow.
-
-**Project improvements**
-Systemic gaps in issue quality or recurring patterns in what agents got wrong.
-Accumulated low-priority findings that warrant a cleanup pass.
-
-**Agent oddities**
-Unexpected sub-agent behaviour — unusual fix iteration counts, surprising interpretations, response format edge cases.
+### Observations                    (each sub-section omitted if empty)
+**Ralph loop improvements** — pre-screen / prompt / gate issues
+**Agent oddities** — unexpected sub-agent behaviour
+**Low-priority pattern signal** — themes from accumulated low-priority findings
 ```
 
-### Why this matters
+If every observations sub-section is empty, the line `No observations this session.` replaces the body.
 
-The retrospective is the primary feedback mechanism for improving Ralph. If a pre-screening criterion keeps missing a class of bad issues, the retrospective surfaces it. If agent prompts consistently produce a particular kind of mistake, that pattern shows up here before it becomes a habit.
-
-Treat the retrospective output as a signal: recurring observations in **Ralph loop improvements** are candidates to fold back into `ralph.md` itself. Recurring observations in **Project improvements** are candidates for a dedicated cleanup issue.
+It then prompts for medium-finding triage (issue creation) and prints a suggested `gh pr create` for the human to run when ready. Ralph itself never opens a PR.
 
 ---
 
 ## Improving Ralph
 
-Ralph is a prompt, not compiled code. Improvements are edits to `claude/commands/ralph.md`.
+Ralph is a prompt, not compiled code. The orchestrator lives in `ralph.md`; the sub-agent prompts live in `ralph/*.md`. Improvements are edits to those files.
 
-When a retrospective surfaces a pattern worth fixing:
+When a retrospective surfaces a recurring pattern:
 
-1. Read the relevant section of `ralph.md`.
-2. Edit the pre-screening criteria, agent prompt, or loop logic to address the root cause.
+1. Read the relevant section of `ralph.md` (loop logic) or `ralph/*.md` (sub-agent prompt).
+2. Edit the pre-screen criteria, gate logic, or agent prompt to address the root cause.
 3. Commit and run another session to verify the fix holds.
 
-This creates a tight loop: Ralph observes → retrospective records → human edits prompt → Ralph improves.
+This is the feedback loop: Ralph observes → retrospective records → human edits prompt → Ralph improves.
