@@ -22,8 +22,6 @@ Third-party skills are installed via [`npx skills`](https://github.com/vercel-la
 npx skills add <owner/repo>
 ```
 
-Refer to the [Skills](#skills) section below for the current list.
-
 ---
 
 ## What's in here
