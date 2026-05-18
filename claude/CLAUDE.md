@@ -49,6 +49,7 @@ feature/task_description
 
 - **Committing** Always ask the user before committing anything.
 - **Pull Requests**: Always ask the user before creating a pull request.
+- **Merging**: When merging a PR (e.g. `gh pr merge`), never delete the branch — do not pass `--delete-branch` and do not delete the local or remote branch afterwards. The user keeps merged branches around.
 - **Uncertainty**: If unsure about a solution, ask for clarification, refine until we agree on an approach.
 - **Git Staging**: Ensure you check the git stage before committing, the user may have added something to it
     - Be specific about what you `git add`, never `git add .` or `git add -A`
