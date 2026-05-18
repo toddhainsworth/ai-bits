@@ -44,7 +44,7 @@ Custom slash commands. Each command is a markdown file in `claude/commands/` and
 
 | Command | Description |
 |---|---|
-| `/ralph` | Autonomous GitHub issue loop — selects, implements, reviews, and closes `ready-for-agent` issues via orchestrated sub-agents. Supports `[N]` to cap the number of issues or `prd <issue>` to process all child issues of a PRD on a shared branch. |
+| `/ralph` | Autonomous GitHub issue loop — selects, implements, reviews, and closes `ready-for-agent` issues via orchestrated sub-agents. Supports `[N]` to cap the number of issues or `prd <issue>` to process all child issues of a PRD on a shared branch. See [the Ralph design notes](claude/commands/README.md) for details. |
 
 ---
 
