@@ -164,7 +164,7 @@ Each cap is **2 attempts per gate**. Cap-exceed in any gate stops the entire loo
 Read the Implementer prompt template:
 
 ```bash
-cat ~/.claude/commands/ralph/implementer.md
+cat ~/.claude/ralph/implementer.md
 ```
 
 Substitute placeholders:
@@ -227,7 +227,7 @@ Note: returning to Step 5 does not reset `verify_attempts`. A verify failure aft
 Read the Reviewer prompt template:
 
 ```bash
-cat ~/.claude/commands/ralph/reviewer.md
+cat ~/.claude/ralph/reviewer.md
 ```
 
 Substitute placeholders:
@@ -349,7 +349,7 @@ Only reached when every open child sub-task has been closed cleanly.
 Read the PRD-Reviewer prompt template:
 
 ```bash
-cat ~/.claude/commands/ralph/prd-reviewer.md
+cat ~/.claude/ralph/prd-reviewer.md
 ```
 
 Substitute placeholders:
@@ -464,8 +464,8 @@ Finally, print:
 
 All sub-agents use `subagent_type: general-purpose`. Their role identity lives in the first line of the prompt template ("You are the Implementer for…").
 
-- **Implementer** — `~/.claude/commands/ralph/implementer.md`. Writes code following TDD. Used for initial implementation, verify-failure re-engagement, cursory-miss re-engagement, Reviewer-finding re-engagement, and PRD-Reviewer gap fills.
-- **Reviewer** — `~/.claude/commands/ralph/reviewer.md`. Reads a slice diff, returns priority-tiered findings. Read-only by instruction.
-- **PRD-Reviewer** — `~/.claude/commands/ralph/prd-reviewer.md`. Reads the cumulative PRD diff against the PRD body, returns priority-tiered findings.
+- **Implementer** — `~/.claude/ralph/implementer.md`. Writes code following TDD. Used for initial implementation, verify-failure re-engagement, cursory-miss re-engagement, Reviewer-finding re-engagement, and PRD-Reviewer gap fills.
+- **Reviewer** — `~/.claude/ralph/reviewer.md`. Reads a slice diff, returns priority-tiered findings. Read-only by instruction.
+- **PRD-Reviewer** — `~/.claude/ralph/prd-reviewer.md`. Reads the cumulative PRD diff against the PRD body, returns priority-tiered findings.
 
 You — the Orchestrator — are the current Claude session. You do not spawn yourself.

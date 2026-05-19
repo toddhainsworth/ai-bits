@@ -13,17 +13,31 @@ Ralph operates only in PRD mode. There is no standard / per-issue mode. To prepa
 ## Layout
 
 ```
-claude/commands/
-  ralph.md                  # /ralph entry point — orchestrator instructions
-  ralph/
-    implementer.md          # prompt template for Implementer sub-agents
-    reviewer.md             # prompt template for slice-level Reviewer
-    prd-reviewer.md         # prompt template for the cumulative PRD Reviewer
+claude/
+  commands/
+    ralph.md                # /ralph entry point — orchestrator instructions
+  ralph/                    # prompt templates (NOT under commands/ on purpose)
+    implementer.md          # template for Implementer sub-agents
+    reviewer.md             # template for slice-level Reviewer
+    prd-reviewer.md         # template for the cumulative PRD Reviewer
 ```
 
-After install (typically a symlink or copy of `claude/commands/` into `~/.claude/commands/`), Ralph reads its prompt templates from `~/.claude/commands/ralph/`.
+The templates live **outside** `commands/` on purpose. Claude Code auto-discovers any `.md` file under `~/.claude/commands/` as a slash command — if the templates were nested in there, they would appear as bogus `/ralph:implementer`, `/ralph:reviewer`, `/ralph:prd-reviewer` commands.
 
-Placeholder substitution in Ralph happens at one place only — the prompt templates use `{{X}}` markers (e.g. `{{NUMBER}}`), and the Orchestrator does plain string replacement before spawning each sub-agent. Anywhere else you see `<X>` notation (in this README or in `ralph.md`'s bash snippets) it's just prose convention — "the actual value goes here" — not a formal substitution.
+Placeholder substitution happens in one place only — the prompt templates use `{{X}}` markers (e.g. `{{NUMBER}}`), and the Orchestrator does plain string replacement before spawning each sub-agent. Anywhere else you see `<X>` notation (in this README or in `ralph.md`'s bash snippets) it's prose convention — "the actual value goes here" — not a formal substitution.
+
+## Install
+
+Symlink the entry point and the templates directory into `~/.claude/`:
+
+```bash
+ln -s "$(pwd)/claude/commands/ralph.md" ~/.claude/commands/ralph.md
+ln -s "$(pwd)/claude/ralph"             ~/.claude/ralph
+```
+
+Run from the repo root. After install, `/ralph <PRD#>` is available from any project, and the orchestrator resolves templates at `~/.claude/ralph/<template>.md`.
+
+If you ever see `/ralph:implementer`, `/ralph:reviewer`, or `/ralph:prd-reviewer` show up in your slash-command list with broken descriptions, the templates symlink landed under `~/.claude/commands/` by mistake — move it to `~/.claude/ralph` and the bogus entries will disappear.
 
 ---
 
