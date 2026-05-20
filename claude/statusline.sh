@@ -2,29 +2,28 @@
 
 input=$(cat)
 
-model=$(echo "$input" | jq -r '.model.display_name // "Unknown Model"')
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-vim_mode=$(echo "$input" | jq -r '.vim.mode // empty')
-agent_name=$(echo "$input" | jq -r '.agent.name // empty')
-cwd=$(echo "$input" | jq -r '.workspace.current_dir // empty')
+tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
 
-# Mode emoji: agent, vim insert, vim normal, or default chat
-if [ -n "$agent_name" ]; then
-  mode_emoji="🤖"
-elif [ "$vim_mode" = "INSERT" ]; then
-  mode_emoji="✏️"
-elif [ "$vim_mode" = "NORMAL" ]; then
-  mode_emoji="👁️"
-else
-  mode_emoji="💬"
-fi
+# Colours (soft 256-colour pastels) — green for plan, light blue for context
+GREEN='\e[38;5;151m'
+BLUE='\e[38;5;153m'
+RESET='\e[0m'
 
 # Context usage
 if [ -n "$used" ]; then
   used_int=$(printf "%.0f" "$used")
-  context_str="📝 ${used_int}%"
+  context_str="${used_int}%"
+  if [ -n "$tokens" ] && [ "$tokens" -gt 0 ]; then
+    if [ "$tokens" -ge 1000 ]; then
+      tokens_str=$(awk -v t="$tokens" 'BEGIN { printf "%.1fk", t/1000 }')
+    else
+      tokens_str="${tokens}"
+    fi
+    context_str="${context_str} (${tokens_str})"
+  fi
 else
-  context_str="📝 --%"
+  context_str="--%"
 fi
 
 # Plan usage (5h window) — cached for 60s to avoid hammering the API
@@ -51,55 +50,22 @@ if usage_cache_stale; then
   fi
 fi
 
+plan_str="--%"
 if [ -f "$USAGE_CACHE" ]; then
   IFS='|' read -r plan_pct resets_at < "$USAGE_CACHE"
-  plan_str="🔋 ${plan_pct}%"
-
-  # Calculate remaining time until reset
+  now_epoch=$(date +%s)
+  reset_epoch=""
   if [ -n "$resets_at" ]; then
     reset_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" "+%s" 2>/dev/null)
-    now_epoch=$(date +%s)
-    if [ -n "$reset_epoch" ] && [ "$reset_epoch" -gt "$now_epoch" ]; then
-      remaining=$(( reset_epoch - now_epoch ))
-      hours=$(( remaining / 3600 ))
-      mins=$(( (remaining % 3600) / 60 ))
-      plan_str="${plan_str} (⏱️ ${hours}h${mins}m)"
-    fi
-  fi
-else
-  plan_str="🔋 --%"
-fi
-
-# Git repo (clickable link) and branch
-git_str=""
-if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
-  branch=$(git -C "$cwd" branch --show-current 2>/dev/null)
-  # Convert SSH remotes to HTTPS for GitHub, Bitbucket, and GitLab
-  remote=$(git -C "$cwd" remote get-url origin 2>/dev/null \
-    | sed 's|git@github\.com:|https://github.com/|' \
-    | sed 's|git@bitbucket\.org:|https://bitbucket.org/|' \
-    | sed 's|ssh://git@bitbucket\.org/|https://bitbucket.org/|' \
-    | sed 's|git@gitlab\.com:|https://gitlab.com/|' \
-    | sed 's|ssh://git@gitlab\.com/|https://gitlab.com/|' \
-    | sed 's|\.git$||')
-
-  if [ -n "$remote" ]; then
-    repo_name=$(basename "$remote")
-    # OSC 8 clickable link: \e]8;;URL\a TEXT \e]8;;\a
-    repo_link=$(printf '\e]8;;%s\a%s\e]8;;\a' "$remote" "$repo_name")
-    git_str=" | ${repo_link}"
   fi
 
-  if [ -n "$branch" ]; then
-    git_str="${git_str} 🌿 ${branch}"
+  # Only show the cached % if the window hasn't already reset
+  if [ -n "$reset_epoch" ] && [ "$reset_epoch" -gt "$now_epoch" ]; then
+    remaining=$(( reset_epoch - now_epoch ))
+    hours=$(( remaining / 3600 ))
+    mins=$(( (remaining % 3600) / 60 ))
+    plan_str="${plan_pct}% (${hours}h${mins}m)"
   fi
 fi
 
-if [ -n "$git_str" ]; then
-  location_str="🔗 ${git_str# | }"
-else
-  dir_name="${cwd##*/}"
-  location_str="📁 ${dir_name:-~}"
-fi
-
-printf '%b' "$mode_emoji $model | $plan_str | $context_str | $location_str\n"
+printf '%b\n' "${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET}"
