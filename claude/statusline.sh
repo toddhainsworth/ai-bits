@@ -4,11 +4,15 @@ input=$(cat)
 
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
+model=$(echo "$input" | jq -r '.model.display_name // empty')
 
-# Colours (soft 256-colour pastels) — green for plan, light blue for context
+# Colours (soft 256-colour pastels) — mauve for model, green for plan, light blue for context
+MAUVE='\e[38;5;183m'
 GREEN='\e[38;5;151m'
 BLUE='\e[38;5;153m'
 RESET='\e[0m'
+
+model_str="${model:-?}"
 
 # Context usage
 if [ -n "$used" ]; then
@@ -68,4 +72,4 @@ if [ -f "$USAGE_CACHE" ]; then
   fi
 fi
 
-printf '%b\n' "${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET}"
+printf '%b\n' "${MAUVE}M: ${model_str}${RESET} | ${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET}"
