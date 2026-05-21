@@ -32,7 +32,7 @@ npx skills add <owner/repo>
 |---|---|---|
 | `CLAUDE.md` | `~/.claude/CLAUDE.md` | Global instructions for every Claude Code session — coding standards, workflow rules, communication preferences. |
 | `settings.json` | `~/.claude/settings.json` | Claude Code settings — permissions, env vars, status line config, experimental features. |
-| `statusline.sh` | `~/.claude/statusline.sh` | Custom status line script. Shows current model, plan usage with time-to-reset, context window % + total input tokens. |
+| `statusline.sh` | `~/.claude/statusline.sh` | Custom status line script. Shows current project, plan usage with time-to-reset, context window % + total input tokens. |
 | `commands/` | `~/.claude/commands/` | Custom slash commands available in every Claude Code session. |
 | `skills/` | `~/.claude/skills/` | Custom skills written for personal use. |
 
