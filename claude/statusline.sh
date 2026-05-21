@@ -5,12 +5,20 @@ input=$(cat)
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
 model=$(echo "$input" | jq -r '.model.display_name // empty')
+cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 
-# Colours (soft 256-colour pastels) — mauve for model, green for plan, light blue for context
+# Colours (soft 256-colour pastels) — mauve for model, green for plan, light blue for context, yellow for project
 MAUVE='\e[38;5;183m'
 GREEN='\e[38;5;151m'
 BLUE='\e[38;5;153m'
+YELLOW='\e[38;5;222m'
 RESET='\e[0m'
+
+project_str="-"
+if [ -n "$cwd" ]; then
+  git_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+  [ -n "$git_root" ] && project_str=$(basename "$git_root")
+fi
 
 model_str="${model:-?}"
 
@@ -72,4 +80,4 @@ if [ -f "$USAGE_CACHE" ]; then
   fi
 fi
 
-printf '%b\n' "${MAUVE}M: ${model_str}${RESET} | ${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET}"
+printf '%b\n' "${YELLOW}P: ${project_str}${RESET} | ${MAUVE}M: ${model_str}${RESET} | ${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET}"
