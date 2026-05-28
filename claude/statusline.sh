@@ -5,11 +5,13 @@ input=$(cat)
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 tokens=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
+model=$(echo "$input" | jq -r '.model.display_name // .model // empty')
 
-# Colours (soft 256-colour pastels) — green for plan, light blue for context, yellow for project
+# Colours (soft 256-colour pastels) — green for plan, light blue for context, yellow for project, magenta for model
 GREEN='\e[38;5;151m'
 BLUE='\e[38;5;153m'
 YELLOW='\e[38;5;222m'
+MAGENTA='\e[38;5;183m'
 RESET='\e[0m'
 
 project_str="-"
@@ -76,4 +78,7 @@ if [ -f "$USAGE_CACHE" ]; then
   fi
 fi
 
-printf '%b\n' "${YELLOW}P: ${project_str}${RESET} | ${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET}"
+# Strip trailing parenthetical (e.g. "Opus 4.8 (1M context)" -> "Opus 4.8")
+model_str=$(echo "${model:--}" | sed -E 's/ *\(.*\)$//')
+
+printf '%b\n' "${YELLOW}P: ${project_str}${RESET} | ${GREEN}U: ${plan_str}${RESET} | ${BLUE}C: ${context_str}${RESET} | ${MAGENTA}M: ${model_str}${RESET}"
