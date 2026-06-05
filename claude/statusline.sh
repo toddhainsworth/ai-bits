@@ -46,6 +46,10 @@ usage_cache_stale() {
 }
 
 if usage_cache_stale; then
+  # Back off for the cache window on every attempt, not just success. A failed
+  # fetch (rate limit, network blip) must still refresh the cache mtime —
+  # otherwise the statusline re-fetches on every render and rate-limits itself.
+  touch "$USAGE_CACHE"
   token=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty')
   if [ -n "$token" ]; then
     resp=$(curl -s --max-time 3 "https://api.anthropic.com/api/oauth/usage" \
@@ -54,6 +58,8 @@ if usage_cache_stale; then
       -H "Content-Type: application/json")
     util=$(echo "$resp" | jq -r '.five_hour.utilization // empty')
     resets_at=$(echo "$resp" | jq -r '.five_hour.resets_at // empty')
+    # Only overwrite the cached value on success; a failed fetch keeps the last
+    # good reading (the touch above already extended the backoff window).
     if [ -n "$util" ]; then
       printf "%.0f|%s" "$util" "$resets_at" > "$USAGE_CACHE"
     fi
