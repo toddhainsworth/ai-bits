@@ -8,7 +8,21 @@
     "command": "~/.claude/statusline.sh",
     "padding": 2
   },
+  "enabledPlugins": {
+    "jira@aligent-plugins": true,
+    "code@aligent-plugins": true
+  },
+  "extraKnownMarketplaces": {
+    "aligent-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "aligent/claude-plugins"
+      }
+    }
+  },
   "alwaysThinkingEnabled": true,
+  "effortLevel": "medium",
+  "tui": "default",
   "autoCompactEnabled": false,
   "agentPushNotifEnabled": true
 }
