@@ -13,6 +13,7 @@
 
 ## Output Preferences
 - **Documentation**: Prefer markdown
+- **Line Wrapping**: Never hard-wrap prose mid-sentence in documentation — one paragraph is one line, let the editor wrap it
 - **Code Comments**: Minimal when required, explain the decision, avoid essentially copying the code (the code should be self-documenting)
 - **Examples**: Real-world scenarios or abstract examples
 - **Follow-ups**: Iterative refinement, avoid creating large tasks, split into smaller deliverables
