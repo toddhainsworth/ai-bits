@@ -11,12 +11,39 @@ model=$(echo "$input" | jq -r '.model.display_name // .model // empty')
 BLUE='\e[38;5;153m'
 YELLOW='\e[38;5;222m'
 MAGENTA='\e[38;5;183m'
+AMBER='\e[38;5;215m'
+RED='\e[38;5;203m'
 RESET='\e[0m'
+
+# Point at which each model's output quality noticeably degrades, and double that
+OPUS_WARN_TOKENS=250000
+SONNET_WARN_TOKENS=400000
 
 project_str="-"
 if [ -n "$cwd" ]; then
   git_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
   [ -n "$git_root" ] && project_str=$(basename "$git_root")
+fi
+
+# Strip trailing parenthetical (e.g. "Opus 4.8 (1M context)" -> "Opus 4.8")
+model_str=$(echo "${model:--}" | sed -E 's/ *\(.*\)$//')
+
+warn_tokens=""
+case "$model_str" in
+  Opus\ 5*) warn_tokens="$OPUS_WARN_TOKENS" ;;
+  Sonnet\ 5*) warn_tokens="$SONNET_WARN_TOKENS" ;;
+esac
+
+context_colour="$BLUE"
+context_warn=""
+if [ -n "$warn_tokens" ] && [ -n "$tokens" ]; then
+  if [ "$tokens" -ge $((warn_tokens * 2)) ]; then
+    context_colour="$RED"
+    context_warn="!! "
+  elif [ "$tokens" -ge "$warn_tokens" ]; then
+    context_colour="$AMBER"
+    context_warn="! "
+  fi
 fi
 
 # Context usage
@@ -35,7 +62,4 @@ else
   context_str="--%"
 fi
 
-# Strip trailing parenthetical (e.g. "Opus 4.8 (1M context)" -> "Opus 4.8")
-model_str=$(echo "${model:--}" | sed -E 's/ *\(.*\)$//')
-
-printf '%b\n' "${YELLOW}P: ${project_str}${RESET} | ${BLUE}C: ${context_str}${RESET} | ${MAGENTA}M: ${model_str}${RESET}"
+printf '%b\n' "${YELLOW}P: ${project_str}${RESET} | ${context_colour}${context_warn}C: ${context_str}${RESET} | ${MAGENTA}M: ${model_str}${RESET}"
