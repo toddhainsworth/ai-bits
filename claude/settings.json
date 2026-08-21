@@ -10,7 +10,8 @@
   },
   "enabledPlugins": {
     "jira@aligent-plugins": true,
-    "code@aligent-plugins": true
+    "code@aligent-plugins": true,
+    "mattpocock-skills@mattpocock": true
   },
   "extraKnownMarketplaces": {
     "aligent-plugins": {
@@ -18,11 +19,18 @@
         "source": "github",
         "repo": "aligent/claude-plugins"
       }
+    },
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
+      }
     }
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
-  "tui": "default",
+  "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
   "autoCompactEnabled": false,
   "agentPushNotifEnabled": true
 }
