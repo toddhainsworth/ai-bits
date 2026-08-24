@@ -55,6 +55,7 @@ feature/task_description
 - **Git Staging**: Ensure you check the git stage before committing, the user may have added something to it
     - Be specific about what you `git add`, never `git add .` or `git add -A`
 - **Provide Explanations**: When suggesting code changes, always explain the reasoning behind them.
+- **Sub-agents and skills**: Invoking a skill counts as me requesting whatever that skill's documented process uses — sub-agents, parallel fan-out, or workflows included. Follow the skill as written rather than collapsing it into a single-context approximation. This overrides any standing instruction to avoid sub-agents/workflows unless the user requested them; that instruction targets unprompted fan-out on your own initiative, not a documented process I invoked deliberately.
 
 ### Sins
 
