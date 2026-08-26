@@ -27,6 +27,9 @@
       }
     }
   },
+  "skillOverrides": {
+    "code-review": "off"
+  },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
   "tui": "fullscreen",
