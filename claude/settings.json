@@ -32,5 +32,6 @@
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "autoCompactEnabled": false,
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "model": "sonnet"
 }
