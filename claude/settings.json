@@ -36,5 +36,6 @@
   "skipWorkflowUsageWarning": true,
   "autoCompactEnabled": false,
   "agentPushNotifEnabled": true,
-  "model": "sonnet"
+  "model": "sonnet",
+  "teammateMode": "in-process"
 }
