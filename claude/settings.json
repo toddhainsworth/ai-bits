@@ -11,7 +11,8 @@
   "enabledPlugins": {
     "jira@aligent-plugins": true,
     "code@aligent-plugins": true,
-    "mattpocock-skills@mattpocock": true
+    "mattpocock-skills@mattpocock": true,
+    "vercel@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "aligent-plugins": {
@@ -35,7 +36,7 @@
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "autoCompactEnabled": false,
-  "agentPushNotifEnabled": true,
   "model": "sonnet",
   "teammateMode": "in-process"
+  "agentPushNotifEnabled": true
 }
