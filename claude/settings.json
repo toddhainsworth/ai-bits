@@ -36,7 +36,8 @@
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "autoCompactEnabled": false,
+  "agentPushNotifEnabled": true,
+  "preferredNotifChannel": "ghostty",
   "model": "sonnet",
   "teammateMode": "in-process"
-  "agentPushNotifEnabled": true
 }
