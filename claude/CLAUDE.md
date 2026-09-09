@@ -25,6 +25,9 @@
 - Run the test suite after all changes
 - Run a `yarn lint --fix` before committing in Typescript-based projects
 - Keep code simple, avoid flourish.
+- Leave the module/function better than you found it.
+    - Avoid scope creep, but offer to raise follow-up tickets for housekeeping tasks.
+    - If your change would duplicate logic, fix in-place rather than creating a follow-up ticket.
 
 ### Commit Messages
 
