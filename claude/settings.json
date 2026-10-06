@@ -3,6 +3,10 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "includeCoAuthoredBy": false,
+  "model": "sonnet",
+  "skillOverrides": {
+    "code-review": "off"
+  },
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
@@ -12,7 +16,7 @@
     "jira@aligent-plugins": true,
     "code@aligent-plugins": true,
     "mattpocock-skills@mattpocock": true,
-    "vercel@claude-plugins-official": true
+    "cc-plugin-you-should-know@builtin": true
   },
   "extraKnownMarketplaces": {
     "aligent-plugins": {
@@ -28,16 +32,12 @@
       }
     }
   },
-  "skillOverrides": {
-    "code-review": "off"
-  },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium",
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
-  "autoCompactEnabled": false,
-  "agentPushNotifEnabled": true,
   "preferredNotifChannel": "ghostty",
-  "model": "sonnet",
-  "teammateMode": "in-process"
+  "autoCompactEnabled": false,
+  "teammateMode": "in-process",
+  "agentPushNotifEnabled": true
 }
